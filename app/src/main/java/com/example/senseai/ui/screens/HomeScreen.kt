@@ -1,14 +1,18 @@
 package com.example.senseai.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,110 +32,128 @@ fun HomeScreen(
     onStartSenseAI: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                MaterialTheme.colorScheme.background
+            )
+            .padding(28.dp)
+            .semantics {
+                contentDescription =
+                    "SenseAI home screen. " +
+                            "Assistive vision system."
+            },
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+
+        verticalArrangement =
+            Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Header Section
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .padding(top = 48.dp)
-                    .semantics {
-                        contentDescription = "${Constants.APP_NAME}. ${Constants.TAGLINE}"
-                    }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            shape = MaterialTheme.shapes.extraLarge
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+        /*
+         * App name
+         */
+        Text(
+            text = Constants.APP_NAME,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-                Text(
-                    text = Constants.APP_NAME,
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
-                Text(
-                    text = Constants.TAGLINE,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
+        /*
+         * Tagline
+         */
+        Text(
+            text = Constants.TAGLINE,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground
+                    .copy(alpha = 0.75f)
+        )
 
-            // Central Info Card
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Spatial Awareness Assistant",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Point camera forward. SenseAI will alert you to approaching people, vehicles, and obstacles via voice & haptics.",
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+        Spacer(
+            modifier = Modifier.height(36.dp)
+        )
 
-            // Bottom Action Buttons
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                PrimaryActionButton(
-                    text = "START SENSEAI",
-                    icon = Icons.Default.PlayArrow,
-                    onClick = onStartSenseAI
-                )
+        /*
+         * Description
+         */
+        Text(
+            text =
+                "An AI-powered assistant that " +
+                        "helps you understand your surroundings " +
+                        "using your phone camera, voice and haptic feedback.",
 
-                SecondaryActionButton(
-                    text = "SETTINGS",
-                    icon = Icons.Default.Settings,
-                    onClick = onOpenSettings
-                )
-            }
-        }
+            modifier = Modifier.fillMaxWidth(),
+
+            textAlign = TextAlign.Center,
+
+            fontSize = 17.sp,
+
+            lineHeight = 25.sp,
+
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground
+                    .copy(alpha = 0.8f)
+        )
+
+        Spacer(
+            modifier = Modifier.height(42.dp)
+        )
+
+        /*
+         * Start button
+         */
+        PrimaryActionButton(
+            text = "START SENSEAI",
+            icon = Icons.Default.CameraAlt,
+            onClick = onStartSenseAI
+        )
+
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
+
+        /*
+         * Settings button
+         */
+        SecondaryActionButton(
+            text = "SETTINGS",
+            icon = Icons.Default.Settings,
+            onClick = onOpenSettings
+        )
+
+        Spacer(
+            modifier = Modifier.height(36.dp)
+        )
+
+        /*
+         * Feature summary
+         */
+        Text(
+            text =
+                "AI Vision  •  Voice Guidance  •  " +
+                        "Distance  •  Movement  •  Safety Alerts",
+
+            modifier = Modifier.fillMaxWidth(),
+
+            textAlign = TextAlign.Center,
+
+            fontSize = 13.sp,
+
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground
+                    .copy(alpha = 0.6f)
+        )
     }
 }

@@ -4,40 +4,86 @@ import android.content.Context
 import com.example.senseai.utils.Logger
 import java.io.File
 
-/**
- * ModelManager handles locating and initializing on-device vision models.
- *
- * For custom TFLite models:
- * - Model file path: `app/src/main/assets/models/senseai_detector.tflite`
- * - Expected Input: Bitmap / TensorImage [1, 300, 300, 3] (UINT8 or FLOAT32)
- * - Expected Output:
- *     Output 0: Bounding boxes [1, 10, 4]
- *     Output 1: Class indices [1, 10]
- *     Output 2: Scores/Confidences [1, 10]
- *     Output 3: Detection count [1]
- */
-class ModelManager(private val context: Context) {
+class ModelManager(
+    private val context: Context
+) {
 
     companion object {
-        const val DEFAULT_CUSTOM_MODEL_ASSET_PATH = "models/senseai_detector.tflite"
+        private const val MODEL_DIRECTORY = "models"
+        private const val MODEL_FILE_NAME = "senseai_detector.tflite"
     }
 
-    fun isCustomModelAvailable(): Boolean {
-        return try {
-            val assets = context.assets.list("models")
-            assets?.contains("senseai_detector.tflite") == true
+    private var modelAvailable = false
+
+    init {
+        checkModel()
+    }
+
+    private fun checkModel() {
+        try {
+            val modelFile = getModelFile()
+
+            modelAvailable = modelFile.exists() &&
+                    modelFile.isFile &&
+                    modelFile.length() > 0L
+
+            if (modelAvailable) {
+                Logger.i(
+                    "SenseAI model found: ${modelFile.absolutePath}"
+                )
+            } else {
+                Logger.w(
+                    "SenseAI model not found"
+                )
+            }
+
         } catch (e: Exception) {
-            false
+            modelAvailable = false
+
+            Logger.e(
+                "Failed to check SenseAI model",
+                e
+            )
         }
     }
 
-    fun getModelSpecification(): String {
-        return """
-            SenseAI Model Specification:
-            - Asset location: app/src/main/assets/models/senseai_detector.tflite
-            - Default On-Device Engine: ML Kit Vision Object Detection + Tracking (Default)
-            - Fallback/Custom Engine: TFLite Support Task Vision API
-            - Target Classes: Person, Vehicle/Car, Chair, Table, Door, Stairs, Obstacle
-        """.trimIndent()
+    fun isModelAvailable(): Boolean {
+        return modelAvailable
+    }
+
+    fun getModelFile(): File {
+        val directory =
+            File(
+                context.filesDir,
+                MODEL_DIRECTORY
+            )
+
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+
+        return File(
+            directory,
+            MODEL_FILE_NAME
+        )
+    }
+
+    fun getModelPath(): String? {
+        val file = getModelFile()
+
+        return if (
+            file.exists() &&
+            file.isFile &&
+            file.length() > 0L
+        ) {
+            file.absolutePath
+        } else {
+            null
+        }
+    }
+
+    fun refreshModelStatus(): Boolean {
+        checkModel()
+        return modelAvailable
     }
 }

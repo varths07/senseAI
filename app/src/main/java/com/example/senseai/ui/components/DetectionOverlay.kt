@@ -6,16 +6,17 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.senseai.data.model.MovementState
 import com.example.senseai.data.model.RiskLevel
 import com.example.senseai.data.model.TrackedObject
 import com.example.senseai.ui.theme.AlertAmber
 import com.example.senseai.ui.theme.BoundingBoxColor
 import com.example.senseai.ui.theme.DangerRed
-import com.example.senseai.ui.theme.SecondaryGreen
 
 @Composable
 fun DetectionOverlay(
@@ -24,78 +25,231 @@ fun DetectionOverlay(
     imageHeight: Int,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier.fillMaxSize()) {
-        if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
+    Canvas(
+        modifier = modifier.fillMaxSize()
+    ) {
 
-        val scaleX = size.width / imageWidth.toFloat()
-        val scaleY = size.height / imageHeight.toFloat()
+        if (
+            imageWidth <= 0 ||
+            imageHeight <= 0 ||
+            trackedObjects.isEmpty()
+        ) {
+            return@Canvas
+        }
 
-        for (obj in trackedObjects) {
-            val box = obj.detection.boundingBox
-            val scaledBox = RectF(
-                box.left * scaleX,
-                box.top * scaleY,
-                box.right * scaleX,
-                box.bottom * scaleY
-            )
+        val scaleX =
+            size.width / imageWidth.toFloat()
 
-            val boxColor = when (obj.trust.riskLevel) {
-                RiskLevel.HIGH -> DangerRed
-                RiskLevel.MEDIUM -> AlertAmber
-                else -> BoundingBoxColor
+        val scaleY =
+            size.height / imageHeight.toFloat()
+
+        trackedObjects.forEach { trackedObject ->
+
+            val originalBox =
+                trackedObject.detection.boundingBox
+
+            if (
+                originalBox.width() <= 0f ||
+                originalBox.height() <= 0f
+            ) {
+                return@forEach
             }
 
-            // Draw bounding box outline
+            val box = RectF(
+                originalBox.left * scaleX,
+                originalBox.top * scaleY,
+                originalBox.right * scaleX,
+                originalBox.bottom * scaleY
+            )
+
+            val risk =
+                trackedObject.trust.riskLevel
+
+            val boxColor =
+                when (risk) {
+                    RiskLevel.HIGH ->
+                        DangerRed
+
+                    RiskLevel.MEDIUM ->
+                        AlertAmber
+
+                    else ->
+                        BoundingBoxColor
+                }
+
+            /*
+             * Bounding box
+             */
             drawRect(
                 color = boxColor,
-                topLeft = androidx.compose.ui.geometry.Offset(scaledBox.left, scaledBox.top),
-                size = androidx.compose.ui.geometry.Size(scaledBox.width(), scaledBox.height()),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)
+                topLeft = Offset(
+                    box.left,
+                    box.top
+                ),
+                size = Size(
+                    box.width(),
+                    box.height()
+                ),
+                style = Stroke(
+                    width = 5f
+                )
             )
 
-            // Prepare paint for overlay text card
-            val labelText = buildString {
-                append(obj.detection.className.replaceFirstChar { it.uppercase() })
-                append(" | ${obj.spatial.direction.label.uppercase()}")
-                append(" | ${obj.spatial.distanceFormatted}")
-                if (obj.spatial.movementState == MovementState.APPROACHING) {
-                    append(" | APPROACHING")
+            /*
+             * Object name
+             */
+            val objectName =
+                trackedObject
+                    .detection
+                    .className
+                    .trim()
+                    .replaceFirstChar {
+                        it.uppercase()
+                    }
+
+            /*
+             * Direction
+             */
+            val direction =
+                trackedObject
+                    .spatial
+                    .direction
+                    .label
+
+            /*
+             * Distance
+             */
+            val distance =
+                trackedObject
+                    .spatial
+                    .distanceFormatted
+
+            /*
+             * Confidence
+             */
+            val confidence =
+                (
+                        trackedObject
+                            .detection
+                            .confidence
+                            .coerceIn(0f, 1f) * 100
+                        ).toInt()
+
+            /*
+             * Movement
+             */
+            val approaching =
+                trackedObject
+                    .spatial
+                    .movementState ==
+                        MovementState.APPROACHING
+
+            val movementText =
+                if (approaching) {
+                    " • APPROACHING"
+                } else {
+                    ""
                 }
-                append(" (${(obj.detection.confidence * 100).toInt()}%)")
-            }
 
-            val paint = Paint().apply {
-                color = android.graphics.Color.WHITE
-                textSize = 36f
-                isFakeBoldText = true
-                setShadowLayer(4f, 2f, 2f, android.graphics.Color.BLACK)
-            }
+            val labelText =
+                "$objectName • " +
+                        "${direction.uppercase()} • " +
+                        "$distance$movementText • " +
+                        "$confidence%"
 
-            val bgPaint = Paint().apply {
-                color = boxColor.toArgb()
-                style = Paint.Style.FILL
-            }
+            /*
+             * Paint for label.
+             */
+            val textPaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color =
+                        android.graphics.Color.WHITE
 
-            val textWidth = paint.measureText(labelText)
-            val textHeight = 44f
-            val textTop = (scaledBox.top - textHeight).coerceAtLeast(0f)
+                    textSize = 34f
 
-            // Background banner for label
-            drawContext.canvas.nativeCanvas.drawRect(
-                scaledBox.left,
-                textTop,
-                scaledBox.left + textWidth + 24f,
-                textTop + textHeight + 12f,
-                bgPaint
-            )
+                    isFakeBoldText = true
 
-            // Text
-            drawContext.canvas.nativeCanvas.drawText(
-                labelText,
-                scaledBox.left + 12f,
-                textTop + textHeight,
-                paint
-            )
+                    setShadowLayer(
+                        5f,
+                        2f,
+                        2f,
+                        android.graphics.Color.BLACK
+                    )
+                }
+
+            /*
+             * Background paint.
+             */
+            val backgroundPaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color =
+                        boxColor.toArgb()
+
+                    style =
+                        Paint.Style.FILL
+                }
+
+            val paddingHorizontal = 14f
+            val paddingVertical = 10f
+
+            val textWidth =
+                textPaint.measureText(labelText)
+
+            val bannerWidth =
+                textWidth +
+                        paddingHorizontal * 2
+
+            val bannerHeight = 58f
+
+            /*
+             * Put label above the box.
+             * If there isn't enough room,
+             * put it inside the box.
+             */
+            val labelTop =
+                if (box.top >= bannerHeight) {
+                    box.top - bannerHeight
+                } else {
+                    box.top
+                }
+
+            val labelLeft =
+                box.left.coerceIn(
+                    0f,
+                    (size.width - bannerWidth)
+                        .coerceAtLeast(0f)
+                )
+
+            /*
+             * Label background.
+             */
+            drawContext
+                .canvas
+                .nativeCanvas
+                .drawRoundRect(
+                    labelLeft,
+                    labelTop,
+                    labelLeft + bannerWidth,
+                    labelTop + bannerHeight,
+                    10f,
+                    10f,
+                    backgroundPaint
+                )
+
+            /*
+             * Label text.
+             */
+            drawContext
+                .canvas
+                .nativeCanvas
+                .drawText(
+                    labelText,
+                    labelLeft + paddingHorizontal,
+                    labelTop +
+                            bannerHeight -
+                            paddingVertical,
+                    textPaint
+                )
         }
     }
 }

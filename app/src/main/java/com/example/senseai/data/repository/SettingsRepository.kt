@@ -1,53 +1,59 @@
-package com.example.senseai.data.repository
+package com.example.senseai.ai
 
-import android.content.Context
-import android.content.SharedPreferences
-import com.example.senseai.data.model.AppSettings
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.example.senseai.data.model.DetectionResult
+import com.example.senseai.data.model.RiskLevel
+import com.example.senseai.data.model.TrustLevel
+import com.example.senseai.data.model.TrustResult
 
-class SettingsRepository(context: Context) {
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+class TemporalVerifier {
 
-    private val _settings = MutableStateFlow(loadSettings())
-    val settings: StateFlow<AppSettings> = _settings.asStateFlow()
+    fun verifyDetection(
+        detection: DetectionResult,
+        trackedHistory: TrackedHistory?
+    ): TrustResult {
 
-    private fun loadSettings(): AppSettings {
-        return AppSettings(
-            speechRate = prefs.getFloat(KEY_SPEECH_RATE, 1.0f),
-            isHapticsEnabled = prefs.getBoolean(KEY_HAPTICS_ENABLED, true),
-            hapticIntensity = prefs.getFloat(KEY_HAPTIC_INTENSITY, 1.0f),
-            alertSensitivity = prefs.getString(KEY_ALERT_SENSITIVITY, "MEDIUM") ?: "MEDIUM",
-            detectionThreshold = prefs.getFloat(KEY_DETECTION_THRESHOLD, 0.50f),
-            showDebugOverlay = prefs.getBoolean(KEY_SHOW_DEBUG_OVERLAY, true),
-            voiceCommandsEnabled = prefs.getBoolean(KEY_VOICE_COMMANDS, true)
-        )
-    }
+        val confidence = detection.confidence.coerceIn(0f, 1f)
 
-    fun updateSettings(newSettings: AppSettings) {
-        prefs.edit().apply {
-            putFloat(KEY_SPEECH_RATE, newSettings.speechRate)
-            putBoolean(KEY_HAPTICS_ENABLED, newSettings.isHapticsEnabled)
-            putFloat(KEY_HAPTIC_INTENSITY, newSettings.hapticIntensity)
-            putString(KEY_ALERT_SENSITIVITY, newSettings.alertSensitivity)
-            putFloat(KEY_DETECTION_THRESHOLD, newSettings.detectionThreshold)
-            putBoolean(KEY_SHOW_DEBUG_OVERLAY, newSettings.showDebugOverlay)
-            putBoolean(KEY_VOICE_COMMANDS, newSettings.voiceCommandsEnabled)
-            apply()
+        val historyCount =
+            trackedHistory?.historyBoxes?.size ?: 0
+
+        val detectionCount =
+            trackedHistory?.detectionCount ?: 1
+
+        /*
+         * Temporal verification:
+         *
+         * More observations of the same object
+         * + higher confidence
+         * = higher trust.
+         */
+
+        val consistencyScore = when {
+            historyCount >= 5 -> 1.0f
+            historyCount >= 3 -> 0.85f
+            historyCount >= 2 -> 0.70f
+            else -> 0.45f
         }
-        _settings.value = newSettings
-    }
 
-    companion object {
-        private const val PREFS_NAME = "senseai_settings"
-        private const val KEY_SPEECH_RATE = "speech_rate"
-        private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
-        private const val KEY_HAPTIC_INTENSITY = "haptic_intensity"
-        private const val KEY_ALERT_SENSITIVITY = "alert_sensitivity"
-        private const val KEY_DETECTION_THRESHOLD = "detection_threshold"
-        private const val KEY_SHOW_DEBUG_OVERLAY = "show_debug_overlay"
-        private const val KEY_VOICE_COMMANDS = "voice_commands"
+        val trustScore =
+            (confidence * 0.6f) +
+                    (consistencyScore * 0.4f)
+
+        val finalScore =
+            trustScore.coerceIn(0f, 1f)
+
+        val trustLevel = when {
+            finalScore >= 0.75f -> TrustLevel.HIGH
+            finalScore >= 0.50f -> TrustLevel.MEDIUM
+            else -> TrustLevel.LOW
+        }
+
+        return TrustResult(
+            trustScore = finalScore,
+            trustLevel = trustLevel,
+            riskLevel = RiskLevel.LOW,
+            verificationCount = detectionCount,
+            isVerified = trustLevel != TrustLevel.LOW
+        )
     }
 }

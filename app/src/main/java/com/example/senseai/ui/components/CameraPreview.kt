@@ -14,15 +14,47 @@ fun CameraPreview(
 ) {
     AndroidView(
         factory = { context ->
+
             PreviewView(context).apply {
+
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                scaleType = PreviewView.ScaleType.FILL_CENTER
+
+                /*
+                 * Keep the camera preview filling
+                 * the complete screen.
+                 */
+                scaleType =
+                    PreviewView.ScaleType.FILL_CENTER
+
+                implementationMode =
+                    PreviewView.ImplementationMode.PERFORMANCE
+
+                /*
+                 * Important for accessibility:
+                 * the camera preview itself does not
+                 * need to receive accessibility focus.
+                 */
+                isFocusable = false
+                importantForAccessibility =
+                    android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+
                 onPreviewViewCreated(this)
             }
         },
-        modifier = modifier.fillMaxSize()
+
+        modifier = modifier.fillMaxSize(),
+
+        update = { previewView ->
+
+            /*
+             * Make sure the preview remains visible
+             * when Compose recomposes.
+             */
+            previewView.visibility =
+                android.view.View.VISIBLE
+        }
     )
 }

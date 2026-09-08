@@ -1,14 +1,18 @@
 package com.example.senseai.ai
 
-import com.example.senseai.data.model.*
+import com.example.senseai.data.model.MovementState
+import com.example.senseai.data.model.SceneResult
+import com.example.senseai.data.model.TrackedObject
 import com.example.senseai.trust.TrustEngine
 
 class SceneAnalyzer {
+
     private val trustEngine = TrustEngine()
 
     fun analyzeScene(
         trackedObjects: List<TrackedObject>
     ): SceneResult {
+
         if (trackedObjects.isEmpty()) {
             return SceneResult(
                 primaryObject = null,
@@ -18,33 +22,48 @@ class SceneAnalyzer {
             )
         }
 
-        // Sort by priority: Risk Level > Approaching State > Distance
-        val sortedDetections = trackedObjects.sortedWith(
-            compareByDescending<TrackedObject> { it.trust.riskLevel.ordinal }
-                .thenByDescending { if (it.spatial.movementState == MovementState.APPROACHING) 1 else 0 }
-                .thenBy { it.spatial.estimatedDistanceMeters ?: 99f }
-        )
+        val sortedObjects =
+            trackedObjects.sortedWith(
+                compareByDescending<TrackedObject> {
+                    riskPriority(it)
+                }
+                    .thenByDescending {
+                        if (
+                            it.spatial.movementState ==
+                            MovementState.APPROACHING
+                        ) {
+                            1
+                        } else {
+                            0
+                        }
+                    }
+                    .thenBy {
+                        it.spatial.estimatedDistanceMeters
+                            ?: 99f
+                    }
+                    .thenByDescending {
+                        it.detection.confidence
+                    }
+            )
 
-        val primary = sortedDetections.first()
-        val secondary = sortedDetections.drop(1)
+        val primary =
+            sortedObjects.first()
 
-        val primaryAlertText = trustEngine.buildAnnouncementText(
-            detection = primary.detection,
-            spatial = primary.spatial,
-            trust = primary.trust
-        )
+        val secondary =
+            sortedObjects.drop(1)
 
-        val sceneDescription = buildString {
-            append(primaryAlertText)
-            if (secondary.isNotEmpty()) {
-                val nextTwo = secondary.take(2)
-                append(" Also ")
-                append(nextTwo.joinToString(". ") { obj ->
-                    "${obj.detection.className} ${obj.spatial.direction.label}"
-                })
-                append(".")
-            }
-        }
+        val primaryAlertText =
+            trustEngine.buildAnnouncementText(
+                detection = primary.detection,
+                spatial = primary.spatial,
+                trust = primary.trust
+            )
+
+        val sceneDescription =
+            buildSceneDescription(
+                primary = primary,
+                secondary = secondary
+            )
 
         return SceneResult(
             primaryObject = primary,
@@ -52,5 +71,61 @@ class SceneAnalyzer {
             primaryAlertText = primaryAlertText,
             fullSceneDescription = sceneDescription
         )
+    }
+
+    private fun riskPriority(
+        objectData: TrackedObject
+    ): Int {
+
+        return when (objectData.trust.riskLevel) {
+            com.example.senseai.data.model.RiskLevel.HIGH -> 4
+            com.example.senseai.data.model.RiskLevel.MEDIUM -> 3
+            com.example.senseai.data.model.RiskLevel.LOW -> 2
+            com.example.senseai.data.model.RiskLevel.SAFE -> 1
+        }
+    }
+
+    private fun buildSceneDescription(
+        primary: TrackedObject,
+        secondary: List<TrackedObject>
+    ): String {
+
+        return buildString {
+
+            append(
+                trustEngine.buildAnnouncementText(
+                    detection = primary.detection,
+                    spatial = primary.spatial,
+                    trust = primary.trust
+                )
+            )
+
+            val additionalObjects =
+                secondary.take(2)
+
+            if (additionalObjects.isNotEmpty()) {
+
+                append(". Also ")
+
+                append(
+                    additionalObjects.joinToString(
+                        separator = ". "
+                    ) { objectData ->
+
+                        val name =
+                            objectData.detection.className
+                                .trim()
+                                .lowercase()
+
+                        val direction =
+                            objectData.spatial.direction.label
+
+                        "$name $direction"
+                    }
+                )
+
+                append(".")
+            }
+        }
     }
 }

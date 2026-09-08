@@ -6,13 +6,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.senseai.ai.AIEngine
 import com.example.senseai.camera.CameraManager
 import com.example.senseai.data.model.AppSettings
@@ -36,127 +36,310 @@ fun CameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val aiEngine = remember { AIEngine(context) }
-    val ttsManager = remember { TextToSpeechManager(context) }
-    val hapticManager = remember { HapticFeedbackManager(context) }
-    val cameraManager = remember { CameraManager(context, lifecycleOwner) }
-
-    var sceneResult by remember { mutableStateOf<SceneResult?>(null) }
-    var isAnalyzing by remember { mutableStateOf(true) }
-    var frameWidth by remember { mutableStateOf(480) }
-    var frameHeight by remember { mutableStateOf(640) }
-    var ocrText by remember { mutableStateOf<String?>(null) }
-
-    // Synchronize TTS speech rate from settings
-    LaunchedEffect(appSettings.speechRate) {
-        ttsManager.setSpeechRate(appSettings.speechRate)
+    val aiEngine = remember {
+        AIEngine(context)
     }
 
+    val ttsManager = remember {
+        TextToSpeechManager(context)
+    }
+
+    val hapticManager = remember {
+        HapticFeedbackManager(context)
+    }
+
+    val cameraManager = remember {
+        CameraManager(
+            context,
+            lifecycleOwner
+        )
+    }
+
+    var sceneResult by remember {
+        mutableStateOf<SceneResult?>(null)
+    }
+
+    var isAnalyzing by remember {
+        mutableStateOf(true)
+    }
+
+    var frameWidth by remember {
+        mutableStateOf(480)
+    }
+
+    var frameHeight by remember {
+        mutableStateOf(640)
+    }
+
+    var ocrText by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    /*
+     * Apply speech rate from Settings.
+     */
+    LaunchedEffect(appSettings.speechRate) {
+
+        ttsManager.setSpeechRate(
+            appSettings.speechRate
+        )
+    }
+
+    /*
+     * Clean up everything when leaving
+     * the camera screen.
+     */
     DisposableEffect(Unit) {
+
         onDispose {
+
+            isAnalyzing = false
+
             cameraManager.stopCamera()
+
             aiEngine.close()
+
+            ttsManager.stop()
+
             ttsManager.shutdown()
+
+            hapticManager.stop()
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                MaterialTheme.colorScheme.background
+            )
     ) {
-        // CameraX Live Preview View
+
+        /*
+         * LIVE CAMERA
+         */
         CameraPreview(
             onPreviewViewCreated = { previewView ->
+
                 cameraManager.startCamera(
                     previewView = previewView,
+
                     onFrameAvailable = { imageProxy ->
+
                         if (!isAnalyzing) {
+
                             imageProxy.close()
+
                             return@startCamera
                         }
 
-                        frameWidth = imageProxy.width
-                        frameHeight = imageProxy.height
+                        frameWidth =
+                            imageProxy.width
+
+                        frameHeight =
+                            imageProxy.height
 
                         aiEngine.processFrame(
-                            imageProxy = imageProxy,
-                            onSceneResult = { result ->
-                                sceneResult = result
-                                val primaryAlert = result.primaryAlertText
-                                val primaryObj = result.primaryObject
 
-                                if (primaryAlert != null && primaryObj != null) {
-                                    val isHighRisk = primaryObj.trust.riskLevel == RiskLevel.HIGH
+                            imageProxy = imageProxy,
+
+                            onSceneResult = { result ->
+
+                                sceneResult = result
+
+                                val primaryObject =
+                                    result.primaryObject
+
+                                val alert =
+                                    result.primaryAlertText
+
+                                if (
+                                    alert != null &&
+                                    primaryObject != null
+                                ) {
+
+                                    val risk =
+                                        primaryObject
+                                            .trust
+                                            .riskLevel
+
+                                    val urgent =
+                                        risk == RiskLevel.HIGH
+
+                                    /*
+                                     * Speak the AI result.
+                                     */
                                     ttsManager.speak(
-                                        text = primaryAlert,
-                                        isUrgent = isHighRisk
+                                        text = alert,
+                                        urgent = urgent
                                     )
-                                    hapticManager.triggerHapticForRisk(
-                                        riskLevel = primaryObj.trust.riskLevel,
-                                        isEnabled = appSettings.isHapticsEnabled
-                                    )
+
+                                    /*
+                                     * Vibrate according
+                                     * to danger level.
+                                     */
+                                    hapticManager
+                                        .triggerHapticForRisk(
+                                            riskLevel = risk,
+                                            isEnabled =
+                                                appSettings
+                                                    .isHapticsEnabled
+                                        )
                                 }
                             },
-                            onError = { e ->
-                                Logger.e("Frame processing failed in CameraScreen", e)
+
+                            onError = { error ->
+
+                                Logger.e(
+                                    "Frame processing failed",
+                                    error
+                                )
                             }
                         )
                     },
-                    onError = { e ->
-                        Toast.makeText(context, "Camera error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+
+                    onError = { error ->
+
+                        Logger.e(
+                            "Camera error",
+                            error
+                        )
+
+                        Toast.makeText(
+                            context,
+                            "Camera error: ${error.localizedMessage}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 )
             }
         )
 
-        // Visual Bounding Box Overlay for Demo / Judges
-        if (appSettings.showDebugOverlay && sceneResult != null) {
+        /*
+         * DEBUG DETECTION OVERLAY
+         */
+        if (
+            appSettings.showDebugOverlay &&
+            sceneResult != null
+        ) {
+
+            val objects =
+                buildList {
+
+                    sceneResult
+                        ?.primaryObject
+                        ?.let {
+                            add(it)
+                        }
+
+                    sceneResult
+                        ?.secondaryObjects
+                        ?.let {
+                            addAll(it)
+                        }
+                }
+
             DetectionOverlay(
-                trackedObjects = sceneResult?.secondaryObjects?.let { sec ->
-                    sceneResult?.primaryObject?.let { prim -> listOf(prim) + sec } ?: sec
-                } ?: emptyList(),
+                trackedObjects = objects,
                 imageWidth = frameWidth,
                 imageHeight = frameHeight
             )
         }
 
-        // Top Status Indicator Card
-        val primaryObj = sceneResult?.primaryObject
+        /*
+         * STATUS
+         */
+        val primaryObject =
+            sceneResult?.primaryObject
+
         StatusIndicator(
+
             isActive = isAnalyzing,
-            statusMessage = ocrText ?: sceneResult?.fullSceneDescription ?: "Analyzing environment...",
-            trustLevel = primaryObj?.trust?.trustLevel ?: TrustLevel.HIGH,
-            riskLevel = primaryObj?.trust?.riskLevel ?: RiskLevel.SAFE,
+
+            statusMessage =
+                ocrText
+                    ?: sceneResult
+                        ?.fullSceneDescription
+                    ?: "Analyzing environment...",
+
+            trustLevel =
+                primaryObject
+                    ?.trust
+                    ?.trustLevel
+                    ?: TrustLevel.HIGH,
+
+            riskLevel =
+                primaryObject
+                    ?.trust
+                    ?.riskLevel
+                    ?: RiskLevel.SAFE,
+
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
         )
 
-        // Bottom Controls Overlay
+        /*
+         * BOTTOM CONTROLS
+         */
         Column(
+
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+
+            verticalArrangement =
+                Arrangement.spacedBy(12.dp)
         ) {
+
+            /*
+             * OCR BUTTON
+             */
             SecondaryActionButton(
+
                 text = "READ THIS TEXT (OCR)",
-                icon = Icons.Default.TextFields,
+
+                icon =
+                    Icons.Default.TextFields,
+
                 onClick = {
-                    ttsManager.speak("Reading text", isUrgent = true)
-                    Toast.makeText(context, "Position text in camera view", Toast.LENGTH_SHORT).show()
+
+                    ttsManager.speakUrgent(
+                        "Reading text"
+                    )
+
+                    Toast.makeText(
+                        context,
+                        "Position text in camera view",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
+            /*
+             * STOP BUTTON
+             */
             PrimaryActionButton(
+
                 text = "STOP ASSISTANCE",
-                icon = Icons.Default.Stop,
+
+                icon =
+                    Icons.Default.Stop,
+
                 onClick = {
+
+                    isAnalyzing = false
+
                     ttsManager.stop()
+
+                    hapticManager.stop()
+
+                    cameraManager.stopCamera()
+
                     onStopAssistance()
                 },
+
                 isDanger = true
             )
         }

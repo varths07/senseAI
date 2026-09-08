@@ -7,14 +7,6 @@ import androidx.core.content.ContextCompat
 
 object PermissionUtils {
 
-    val REQUIRED_PERMISSIONS = arrayOf(
-        Manifest.permission.CAMERA
-    )
-
-    val OPTIONAL_PERMISSIONS = arrayOf(
-        Manifest.permission.RECORD_AUDIO
-    )
-
     fun hasCameraPermission(context: Context): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
@@ -22,10 +14,15 @@ object PermissionUtils {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun hasAudioPermission(context: Context): Boolean {
+    fun hasMicrophonePermission(context: Context): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun hasAllRequiredPermissions(context: Context): Boolean {
+        return hasCameraPermission(context) &&
+                hasMicrophonePermission(context)
     }
 }
