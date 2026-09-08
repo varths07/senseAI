@@ -25,4 +25,35 @@ data class SpatialResult(
     val estimatedDistanceMeters: Float?,
     val distanceFormatted: String,
     val movementState: MovementState = MovementState.UNKNOWN
-)
+) {
+
+    /**
+     * Returns true when the object is somewhere
+     * in the user's forward walking path.
+     */
+    val isAhead: Boolean
+        get() = when (direction) {
+            SpatialDirection.CENTER,
+            SpatialDirection.SLIGHTLY_LEFT,
+            SpatialDirection.SLIGHTLY_RIGHT,
+            SpatialDirection.AHEAD_LEFT,
+            SpatialDirection.AHEAD_RIGHT -> true
+
+            else -> false
+        }
+
+    /**
+     * Returns true when the object is moving toward
+     * the camera.
+     */
+    val isApproaching: Boolean
+        get() = movementState == MovementState.APPROACHING
+
+    /**
+     * Returns true when a usable numeric distance
+     * estimate is available.
+     */
+    val hasDistance: Boolean
+        get() = estimatedDistanceMeters != null &&
+                estimatedDistanceMeters > 0f
+}

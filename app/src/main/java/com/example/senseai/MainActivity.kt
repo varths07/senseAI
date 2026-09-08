@@ -1,9 +1,13 @@
 package com.example.senseai
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.senseai.data.repository.SettingsRepository
 import com.example.senseai.navigation.AppNavigation
 import com.example.senseai.ui.theme.SenseAITheme
@@ -12,16 +16,64 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var settingsRepository: SettingsRepository
 
+    companion object {
+        private const val CAMERA_PERMISSION_REQUEST = 1001
+        private const val AUDIO_PERMISSION_REQUEST = 1002
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
 
-        settingsRepository = SettingsRepository(applicationContext)
+        settingsRepository =
+            SettingsRepository(applicationContext)
+
+        requestRequiredPermissions()
 
         setContent {
             SenseAITheme {
-                AppNavigation(settingsRepository = settingsRepository)
+                AppNavigation(
+                    settingsRepository = settingsRepository
+                )
             }
+        }
+    }
+
+    private fun requestRequiredPermissions() {
+
+        val permissionsToRequest =
+            mutableListOf<String>()
+
+        if (
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(
+                Manifest.permission.CAMERA
+            )
+        }
+
+        if (
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(
+                Manifest.permission.RECORD_AUDIO
+            )
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                CAMERA_PERMISSION_REQUEST
+            )
         }
     }
 }

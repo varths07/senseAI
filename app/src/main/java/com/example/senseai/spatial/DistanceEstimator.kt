@@ -5,9 +5,6 @@ import kotlin.math.roundToInt
 
 class DistanceEstimator {
 
-    /**
-     * Estimated average physical heights of typical objects in meters.
-     */
     private val averageHeightsMeters = mapOf(
         "person" to 1.70f,
         "car" to 1.50f,
@@ -15,6 +12,8 @@ class DistanceEstimator {
         "bus" to 3.00f,
         "truck" to 2.80f,
         "bicycle" to 1.00f,
+        "motorcycle" to 1.20f,
+        "motorbike" to 1.20f,
         "chair" to 0.90f,
         "table" to 0.75f,
         "door" to 2.00f,
@@ -27,25 +26,78 @@ class DistanceEstimator {
         boundingBox: RectF,
         imageHeight: Float
     ): Pair<Float?, String> {
-        if (imageHeight <= 0f || boundingBox.height() <= 0f) {
+
+        if (
+            imageHeight <= 0f ||
+            boundingBox.height() <= 0f
+        ) {
             return Pair(null, "distance unknown")
         }
 
-        val knownRealHeight = averageHeightsMeters[className.lowercase()] ?: 1.0f
-        // Assumed focal length factor for typical phone cameras (approx 600px for 480p/720p height)
-        val focalLengthPx = imageHeight * 1.15f
+        val normalizedClassName =
+            className.trim().lowercase()
 
-        val pixelHeight = boundingBox.height()
-        val estimatedDistanceMeters = (knownRealHeight * focalLengthPx) / pixelHeight
+        /*
+         * Use the known approximate height.
+         * For unknown objects, use a conservative default
+         * so the existing SpatialAnalyzer API continues
+         * to work without changes.
+         */
+        val realHeight =
+            averageHeightsMeters[normalizedClassName] ?: 1.0f
 
-        val roundedDistance = (estimatedDistanceMeters * 10).roundToInt() / 10.0f
+        /*
+         * Approximate focal length for a phone camera.
+         */
+        val focalLengthPx =
+            imageHeight * 1.15f
 
-        val formatted = when {
-            roundedDistance < 1.0f -> "less than a meter away"
-            roundedDistance.roundToInt() == 1 -> "about one meter away"
-            else -> "about ${roundedDistance.roundToInt()} meters away"
+        val pixelHeight =
+            boundingBox.height()
+
+        /*
+         * Basic monocular distance estimation:
+         *
+         * distance =
+         * real object height * focal length
+         * ----------------------------------
+         * object height in pixels
+         */
+        val estimatedDistance =
+            (realHeight * focalLengthPx) / pixelHeight
+
+        if (
+            estimatedDistance.isNaN() ||
+            estimatedDistance.isInfinite() ||
+            estimatedDistance <= 0f
+        ) {
+            return Pair(null, "distance unknown")
         }
 
-        return Pair(roundedDistance, formatted)
+        /*
+         * Limit extreme estimates.
+         */
+        val safeDistance =
+            estimatedDistance.coerceIn(0.3f, 20.0f)
+
+        val roundedDistance =
+            (safeDistance * 10f)
+                .roundToInt() / 10.0f
+
+        val formattedDistance = when {
+            roundedDistance < 1.0f ->
+                "less than a meter away"
+
+            roundedDistance < 2.0f ->
+                "about one meter away"
+
+            else ->
+                "about ${roundedDistance.roundToInt()} meters away"
+        }
+
+        return Pair(
+            roundedDistance,
+            formattedDistance
+        )
     }
 }

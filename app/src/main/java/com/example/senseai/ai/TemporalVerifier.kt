@@ -1,40 +1,89 @@
-package com.example.senseai.ai
+package com.example.senseai.data.model
 
-import com.example.senseai.data.model.DetectionResult
-import com.example.senseai.data.model.TrustLevel
-import com.example.senseai.data.model.TrustResult
-
-class TemporalVerifier {
+/**
+ * Describes the observed movement of a tracked object.
+ *
+ * IMPORTANT:
+ *
+ * deltaDistance is a relative change in the object's
+ * visual size in the camera frame. It is NOT guaranteed
+ * to be a measurement in meters.
+ *
+ * velocityMetersPerSec is only populated when a reliable
+ * metric distance calculation is available. Otherwise it
+ * remains 0.0.
+ */
+data class MovementResult(
 
     /**
-     * Evaluates verification metrics over tracked history.
+     * ID assigned to the tracked object.
+     *
+     * -1 means that no valid tracking ID is available.
      */
-    fun verifyDetection(
-        detection: DetectionResult,
-        trackedHistory: TrackedHistory?
-    ): TrustResult {
-        val count = trackedHistory?.detectionCount ?: 1
-        val confidence = detection.confidence
+    val trackingId: Int,
 
-        // Base trust calculations
-        val persistenceScore = (count / 4.0f).coerceAtMost(1.0f)
-        val stabilityScore = confidence.coerceIn(0.0f, 1.0f)
-        val trustScore = (persistenceScore * 0.5f) + (stabilityScore * 0.5f)
+    /**
+     * Estimated movement direction.
+     */
+    val movementState: MovementState,
 
-        val trustLevel = when {
-            trustScore >= 0.75f && count >= 3 -> TrustLevel.HIGH
-            trustScore >= 0.50f || count >= 2 -> TrustLevel.MEDIUM
-            else -> TrustLevel.LOW
-        }
+    /**
+     * Relative change in visual object size.
+     *
+     * Positive value:
+     *     object appears larger / may be approaching
+     *
+     * Negative value:
+     *     object appears smaller / may be moving away
+     *
+     * Example:
+     *     0.20 = approximately 20% increase in visual height
+     *
+     * This is NOT meters.
+     */
+    val deltaDistance: Float,
 
-        val isVerified = trustLevel != TrustLevel.LOW
+    /**
+     * Estimated velocity in meters per second.
+     *
+     * This value is only meaningful when metric distance
+     * information is available.
+     *
+     * 0.0 means velocity could not be reliably calculated.
+     */
+    val velocityMetersPerSec: Float,
 
-        return TrustResult(
-            trustScore = trustScore,
-            trustLevel = trustLevel,
-            riskLevel = com.example.senseai.data.model.RiskLevel.LOW, // Calculated later in RiskEngine
-            verificationCount = count,
-            isVerified = isVerified
-        )
-    }
+    /**
+     * Number of historical observations available for
+     * this tracked object.
+     */
+    val historyCount: Int,
+
+    /**
+     * Confidence that the movement classification is reliable.
+     *
+     * Range:
+     *     0.0 -> unreliable
+     *     1.0 -> highly reliable
+     *
+     * Default is 0.0 because the existing MovementAnalyzer
+     * does not calculate movement confidence yet.
+     */
+    val movementConfidence: Float = 0.0f
+) {
+
+    /**
+     * Returns true when enough temporal information exists
+     * to make a movement decision.
+     */
+    val hasSufficientHistory: Boolean
+        get() = historyCount >= 3
+
+    /**
+     * Returns true when the movement result has meaningful
+     * confidence.
+     */
+    val isReliable: Boolean
+        get() = movementConfidence >= 0.60f &&
+                movementState != MovementState.UNKNOWN
 }
