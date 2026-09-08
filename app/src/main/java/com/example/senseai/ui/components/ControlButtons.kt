@@ -18,7 +18,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,13 +27,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.senseai.ui.theme.DangerRed
 import com.example.senseai.ui.theme.PrimaryBlue
 
 @Composable
 fun PrimaryActionButton(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isDanger: Boolean = false
@@ -49,36 +49,26 @@ fun PrimaryActionButton(
             },
         shape = RoundedCornerShape(20.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor =
-                if (isDanger) {
-                    DangerRed
-                } else {
-                    PrimaryBlue
-                },
-            contentColor =
-                MaterialTheme.colorScheme.onPrimary
-        ),
-        elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 8.dp
+            containerColor = if (isDanger) {
+                DangerRed
+            } else {
+                PrimaryBlue
+            },
+            contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.Center,
-            verticalAlignment =
-                Alignment.CenterVertically
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(30.dp)
             )
 
-            Spacer(
-                modifier = Modifier.width(14.dp)
-            )
+            Spacer(modifier = Modifier.width(14.dp))
 
             Text(
                 text = text,
@@ -92,7 +82,7 @@ fun PrimaryActionButton(
 @Composable
 fun SecondaryActionButton(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -104,29 +94,20 @@ fun SecondaryActionButton(
             .semantics {
                 contentDescription = text
             },
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedButtonDefaults.colors(
-            contentColor =
-                MaterialTheme.colorScheme.primary
-        )
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.Center,
-            verticalAlignment =
-                Alignment.CenterVertically
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(25.dp)
             )
 
-            Spacer(
-                modifier = Modifier.width(12.dp)
-            )
+            Spacer(modifier = Modifier.width(12.dp))
 
             Text(
                 text = text,

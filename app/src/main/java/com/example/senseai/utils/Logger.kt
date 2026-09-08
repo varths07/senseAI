@@ -4,7 +4,7 @@ import android.util.Log
 
 object Logger {
 
-    private const val TAG = "SenseAI"
+    private const val TAG = "SenseAI_v3"
 
     private var debugEnabled = true
 

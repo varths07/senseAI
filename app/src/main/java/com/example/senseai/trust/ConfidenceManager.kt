@@ -2,6 +2,7 @@ package com.example.senseai.trust
 
 
 import com.example.senseai.data.model.DetectionResult
+import com.example.senseai.utils.Logger
 import kotlin.math.abs
 
 /**
@@ -17,7 +18,7 @@ import kotlin.math.abs
 class ConfidenceManager {
 
     companion object {
-        private const val DEFAULT_MIN_CONFIDENCE = 0.45f
+        private const val DEFAULT_MIN_CONFIDENCE = 0.20f
 
         /**
          * Some objects are more safety-critical and should
@@ -60,7 +61,9 @@ class ConfidenceManager {
                 detection.className.trim().lowercase()
             ] ?: safeMinimum
 
-            confidence >= classThreshold
+            val isConfident = confidence >= classThreshold
+            Logger.d("ConfidenceManager: ${detection.className} confidence=$confidence, threshold=$classThreshold, pass=$isConfident")
+            isConfident
         }
     }
 

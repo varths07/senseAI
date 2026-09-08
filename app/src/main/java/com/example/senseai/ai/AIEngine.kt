@@ -22,11 +22,33 @@ class AIEngine(context: Context) {
 
     val ocrProcessor = OCRProcessor()
 
+    init {
+        // Initialize on a background thread to avoid blocking the UI
+        Thread {
+            initializeDetector()
+        }.start()
+    }
+
+    private fun initializeDetector() {
+        if (modelManager.isModelAvailable()) {
+            val modelFile = modelManager.getModelFile()
+            objectDetector.initialize(modelFile)
+        } else {
+            Logger.w("AIEngine: Model not available for initialization")
+        }
+    }
+
     fun processFrame(
         imageProxy: ImageProxy,
         onSceneResult: (SceneResult) -> Unit,
         onError: (Exception) -> Unit
     ) {
+        Logger.d("AIEngine: processFrame, initialized=${objectDetector.isInitialized()}")
+
+        if (!objectDetector.isInitialized()) {
+            imageProxy.close()
+            return
+        }
 
         val imageWidth = imageProxy.width.toFloat()
         val imageHeight = imageProxy.height.toFloat()
@@ -35,12 +57,13 @@ class AIEngine(context: Context) {
             imageProxy = imageProxy,
 
             onSuccess = { detections ->
-
+                Logger.d("AIEngine: onSuccess with ${detections.size} detections")
                 try {
 
                     // Remove very low-confidence detections.
                     val filteredDetections =
                         confidenceManager.filterDetections(detections)
+                    Logger.d("AIEngine: filtered to ${filteredDetections.size} detections")
 
                     // Track the remaining detections.
                     val tracks =

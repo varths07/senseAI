@@ -1,98 +1,59 @@
 package com.example.senseai.ai
 
-import androidx.camera.core.ImageProxy
-import com.example.senseai.utils.Logger
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.example.senseai.utils.Logger
 
 class OCRProcessor {
 
-    private val textRecognizer =
+    private val recognizer =
         TextRecognition.getClient(
             TextRecognizerOptions.DEFAULT_OPTIONS
         )
 
     fun processImage(
-        imageProxy: ImageProxy,
+        inputImage: InputImage,
         onSuccess: (String) -> Unit,
         onError: (Exception) -> Unit
     ) {
 
-        val mediaImage = imageProxy.image
+        recognizer
+            .process(inputImage)
+            .addOnSuccessListener { result ->
 
-        if (mediaImage == null) {
-            imageProxy.close()
-            onSuccess("No text visible")
-            return
-        }
-
-        try {
-
-            val inputImage =
-                InputImage.fromMediaImage(
-                    mediaImage,
-                    imageProxy.imageInfo.rotationDegrees
-                )
-
-            textRecognizer
-                .process(inputImage)
-                .addOnSuccessListener { text ->
-
-                    try {
-                        val detectedText =
-                            text.text
-                                .trim()
-                                .replace(
-                                    Regex("\\s+"),
-                                    " "
-                                )
-
-                        if (detectedText.isEmpty()) {
-                            onSuccess("No readable text found")
-                        } else {
-                            onSuccess(detectedText)
-                        }
-
-                    } catch (e: Exception) {
-                        Logger.e(
-                            "Error reading OCR result",
-                            e
-                        )
-                        onError(e)
-                    } finally {
-                        imageProxy.close()
-                    }
-                }
-                .addOnFailureListener { e ->
+                try {
+                    onSuccess(
+                        result.text.trim()
+                    )
+                } catch (e: Exception) {
 
                     Logger.e(
-                        "OCR processing failed",
+                        "Failed to process OCR result",
                         e
                     )
 
-                    imageProxy.close()
                     onError(e)
                 }
+            }
+            .addOnFailureListener { exception ->
 
-        } catch (e: Exception) {
+                Logger.e(
+                    "OCR processing failed",
+                    exception
+                )
 
-            Logger.e(
-                "Failed to process OCR image",
-                e
-            )
-
-            imageProxy.close()
-            onError(e)
-        }
+                onError(exception)
+            }
     }
 
     fun close() {
         try {
-            textRecognizer.close()
+            recognizer.close()
         } catch (e: Exception) {
+
             Logger.e(
-                "Error closing OCRProcessor",
+                "Failed to close OCR recognizer",
                 e
             )
         }

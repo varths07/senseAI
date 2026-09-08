@@ -1,59 +1,163 @@
-package com.example.senseai.ai
+package com.example.senseai.data.repository
 
-import com.example.senseai.data.model.DetectionResult
-import com.example.senseai.data.model.RiskLevel
-import com.example.senseai.data.model.TrustLevel
-import com.example.senseai.data.model.TrustResult
+import android.content.Context
+import com.example.senseai.data.model.AppSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-class TemporalVerifier {
+class SettingsRepository(context: Context) {
 
-    fun verifyDetection(
-        detection: DetectionResult,
-        trackedHistory: TrackedHistory?
-    ): TrustResult {
+    companion object {
+        private const val PREFS_NAME = "senseai_settings"
 
-        val confidence = detection.confidence.coerceIn(0f, 1f)
+        private const val KEY_ASSISTANCE_ENABLED = "assistance_enabled"
+        private const val KEY_VOICE_ENABLED = "voice_enabled"
+        private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
+        private const val KEY_SHOW_DETECTION_BOXES = "show_detection_boxes"
+        private const val KEY_CONFIDENCE_THRESHOLD = "confidence_threshold"
+        private const val KEY_SPEECH_RATE = "speech_rate"
+        private const val KEY_REPEAT_ALERT_DELAY = "repeat_alert_delay"
+        private const val KEY_VOICE_COMMANDS_ENABLED = "voice_commands_enabled"
+        private const val KEY_HAPTIC_INTENSITY = "haptic_intensity"
+        private const val KEY_ALERT_SENSITIVITY = "alert_sensitivity"
+    }
 
-        val historyCount =
-            trackedHistory?.historyBoxes?.size ?: 0
+    private val preferences =
+        context.applicationContext.getSharedPreferences(
+            PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
 
-        val detectionCount =
-            trackedHistory?.detectionCount ?: 1
+    private val _settings = MutableStateFlow(loadSettings())
 
-        /*
-         * Temporal verification:
-         *
-         * More observations of the same object
-         * + higher confidence
-         * = higher trust.
-         */
+    val settings: StateFlow<AppSettings> =
+        _settings.asStateFlow()
 
-        val consistencyScore = when {
-            historyCount >= 5 -> 1.0f
-            historyCount >= 3 -> 0.85f
-            historyCount >= 2 -> 0.70f
-            else -> 0.45f
-        }
+    fun updateSettings(newSettings: AppSettings) {
 
-        val trustScore =
-            (confidence * 0.6f) +
-                    (consistencyScore * 0.4f)
+        val normalizedSettings = newSettings.copy(
+            confidenceThreshold =
+                newSettings.validConfidenceThreshold,
 
-        val finalScore =
-            trustScore.coerceIn(0f, 1f)
+            speechRate =
+                newSettings.validSpeechRate,
 
-        val trustLevel = when {
-            finalScore >= 0.75f -> TrustLevel.HIGH
-            finalScore >= 0.50f -> TrustLevel.MEDIUM
-            else -> TrustLevel.LOW
-        }
+            repeatAlertDelayMs =
+                newSettings.validRepeatAlertDelayMs,
 
-        return TrustResult(
-            trustScore = finalScore,
-            trustLevel = trustLevel,
-            riskLevel = RiskLevel.LOW,
-            verificationCount = detectionCount,
-            isVerified = trustLevel != TrustLevel.LOW
+            hapticIntensity =
+                newSettings.validHapticIntensity
+        )
+
+        preferences.edit()
+            .putBoolean(
+                KEY_ASSISTANCE_ENABLED,
+                normalizedSettings.assistanceEnabled
+            )
+            .putBoolean(
+                KEY_VOICE_ENABLED,
+                normalizedSettings.voiceEnabled
+            )
+            .putBoolean(
+                KEY_HAPTIC_ENABLED,
+                normalizedSettings.hapticEnabled
+            )
+            .putBoolean(
+                KEY_SHOW_DETECTION_BOXES,
+                normalizedSettings.showDetectionBoxes
+            )
+            .putFloat(
+                KEY_CONFIDENCE_THRESHOLD,
+                normalizedSettings.confidenceThreshold
+            )
+            .putFloat(
+                KEY_SPEECH_RATE,
+                normalizedSettings.speechRate
+            )
+            .putLong(
+                KEY_REPEAT_ALERT_DELAY,
+                normalizedSettings.repeatAlertDelayMs
+            )
+            .putBoolean(
+                KEY_VOICE_COMMANDS_ENABLED,
+                normalizedSettings.voiceCommandsEnabled
+            )
+            .putFloat(
+                KEY_HAPTIC_INTENSITY,
+                normalizedSettings.hapticIntensity
+            )
+            .putString(
+                KEY_ALERT_SENSITIVITY,
+                normalizedSettings.alertSensitivity
+            )
+            .apply()
+
+        _settings.value = normalizedSettings
+    }
+
+    private fun loadSettings(): AppSettings {
+
+        return AppSettings(
+            assistanceEnabled =
+                preferences.getBoolean(
+                    KEY_ASSISTANCE_ENABLED,
+                    true
+                ),
+
+            voiceEnabled =
+                preferences.getBoolean(
+                    KEY_VOICE_ENABLED,
+                    true
+                ),
+
+            hapticEnabled =
+                preferences.getBoolean(
+                    KEY_HAPTIC_ENABLED,
+                    true
+                ),
+
+            showDetectionBoxes =
+                preferences.getBoolean(
+                    KEY_SHOW_DETECTION_BOXES,
+                    true
+                ),
+
+            confidenceThreshold =
+                preferences.getFloat(
+                    KEY_CONFIDENCE_THRESHOLD,
+                    0.50f
+                ),
+
+            speechRate =
+                preferences.getFloat(
+                    KEY_SPEECH_RATE,
+                    1.0f
+                ),
+
+            repeatAlertDelayMs =
+                preferences.getLong(
+                    KEY_REPEAT_ALERT_DELAY,
+                    3000L
+                ),
+
+            voiceCommandsEnabled =
+                preferences.getBoolean(
+                    KEY_VOICE_COMMANDS_ENABLED,
+                    true
+                ),
+
+            hapticIntensity =
+                preferences.getFloat(
+                    KEY_HAPTIC_INTENSITY,
+                    1.0f
+                ),
+
+            alertSensitivity =
+                preferences.getString(
+                    KEY_ALERT_SENSITIVITY,
+                    "MEDIUM"
+                ) ?: "MEDIUM"
         )
     }
 }

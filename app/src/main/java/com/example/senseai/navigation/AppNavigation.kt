@@ -150,4 +150,4 @@ private fun openCamera(
     if (cameraGranted) {
         navController.navigate(NavRoutes.CAMERA)
     }
-}s
+}

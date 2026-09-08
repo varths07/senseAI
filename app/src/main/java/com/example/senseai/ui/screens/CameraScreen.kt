@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
+
 import com.example.senseai.ai.AIEngine
 import com.example.senseai.camera.CameraManager
 import com.example.senseai.data.model.AppSettings
@@ -26,7 +27,7 @@ import com.example.senseai.ui.components.PrimaryActionButton
 import com.example.senseai.ui.components.SecondaryActionButton
 import com.example.senseai.ui.components.StatusIndicator
 import com.example.senseai.utils.Logger
-import com.example.senseai.voice.TextToSpeechManager
+import com.example.senseai.voice.VoiceManager
 
 @Composable
 fun CameraScreen(
@@ -36,23 +37,62 @@ fun CameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    /*
+     * ==============================
+     * AI ENGINE
+     * ==============================
+     */
     val aiEngine = remember {
         AIEngine(context)
     }
 
-    val ttsManager = remember {
-        TextToSpeechManager(context)
+    /*
+     * ==============================
+     * TEXT TO SPEECH
+     * ==============================
+     */
+    val voiceManager = remember {
+        VoiceManager(context)
     }
 
+    /*
+     * ==============================
+     * HAPTIC MANAGER
+     * ==============================
+     */
     val hapticManager = remember {
         HapticFeedbackManager(context)
     }
 
+    /*
+     * ==============================
+     * CAMERA MANAGER
+     * ==============================
+     */
     val cameraManager = remember {
         CameraManager(
-            context,
-            lifecycleOwner
+            context = context,
+            lifecycleOwner = lifecycleOwner
         )
+    }
+
+    /*
+     * ==============================
+     * STATE
+     * ==============================
+     */
+    val isModelAvailable = remember {
+        aiEngine.modelManager.isModelAvailable()
+    }
+
+    LaunchedEffect(Unit) {
+        if (!isModelAvailable) {
+            Toast.makeText(
+                context,
+                "AI Model not found. Please download it in settings.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     var sceneResult by remember {
@@ -64,11 +104,11 @@ fun CameraScreen(
     }
 
     var frameWidth by remember {
-        mutableStateOf(480)
+        mutableIntStateOf(480)
     }
 
     var frameHeight by remember {
-        mutableStateOf(640)
+        mutableIntStateOf(640)
     }
 
     var ocrText by remember {
@@ -76,18 +116,21 @@ fun CameraScreen(
     }
 
     /*
-     * Apply speech rate from Settings.
+     * ==============================
+     * SPEECH SETTINGS
+     * ==============================
      */
     LaunchedEffect(appSettings.speechRate) {
 
-        ttsManager.setSpeechRate(
-            appSettings.speechRate
+        voiceManager.setSpeechRate(
+            appSettings.validSpeechRate
         )
     }
 
     /*
-     * Clean up everything when leaving
-     * the camera screen.
+     * ==============================
+     * CLEANUP
+     * ==============================
      */
     DisposableEffect(Unit) {
 
@@ -99,14 +142,19 @@ fun CameraScreen(
 
             aiEngine.close()
 
-            ttsManager.stop()
+            voiceManager.stop()
 
-            ttsManager.shutdown()
+            voiceManager.shutdown()
 
             hapticManager.stop()
         }
     }
 
+    /*
+     * ==============================
+     * MAIN SCREEN
+     * ==============================
+     */
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -116,16 +164,23 @@ fun CameraScreen(
     ) {
 
         /*
-         * LIVE CAMERA
+         * ==============================
+         * CAMERA PREVIEW
+         * ==============================
          */
         CameraPreview(
             onPreviewViewCreated = { previewView ->
 
                 cameraManager.startCamera(
+
                     previewView = previewView,
 
                     onFrameAvailable = { imageProxy ->
 
+                        /*
+                         * If analysis has stopped,
+                         * release the frame.
+                         */
                         if (!isAnalyzing) {
 
                             imageProxy.close()
@@ -133,58 +188,69 @@ fun CameraScreen(
                             return@startCamera
                         }
 
+                        /*
+                         * Save image dimensions.
+                         */
                         frameWidth =
                             imageProxy.width
 
                         frameHeight =
                             imageProxy.height
 
+                        /*
+                         * Send frame to AI.
+                         */
                         aiEngine.processFrame(
 
                             imageProxy = imageProxy,
 
                             onSceneResult = { result ->
-
+                                Logger.d("CameraScreen: onSceneResult received")
                                 sceneResult = result
 
+                                /*
+                                 * VOICE ANNOUNCEMENTS
+                                 */
+                                if (appSettings.voiceEnabled) {
+
+                                    val detections = buildList {
+                                        result.primaryObject?.let { add(it.detection) }
+                                        addAll(result.secondaryObjects.map { it.detection })
+                                    }
+
+                                    voiceManager.announceDetections(
+                                        detections = detections,
+                                        minIntervalMs = appSettings.validRepeatAlertDelayMs,
+                                        confidenceThreshold = appSettings.validConfidenceThreshold
+                                    )
+                                }
+
+                                /*
+                                 * Find the main detected object.
+                                 */
                                 val primaryObject =
                                     result.primaryObject
 
-                                val alert =
-                                    result.primaryAlertText
+                                /*
+                                 * HAPTIC FEEDBACK
+                                 */
+                                if (primaryObject != null) {
 
-                                if (
-                                    alert != null &&
-                                    primaryObject != null
-                                ) {
-
-                                    val risk =
+                                    val riskLevel =
                                         primaryObject
                                             .trust
                                             .riskLevel
 
-                                    val urgent =
-                                        risk == RiskLevel.HIGH
+                                    hapticManager.triggerHapticForRisk(
 
-                                    /*
-                                     * Speak the AI result.
-                                     */
-                                    ttsManager.speak(
-                                        text = alert,
-                                        urgent = urgent
+                                        riskLevel = riskLevel,
+
+                                        isEnabled =
+                                            appSettings.hapticEnabled,
+
+                                        intensity =
+                                            appSettings.hapticIntensity
                                     )
-
-                                    /*
-                                     * Vibrate according
-                                     * to danger level.
-                                     */
-                                    hapticManager
-                                        .triggerHapticForRisk(
-                                            riskLevel = risk,
-                                            isEnabled =
-                                                appSettings
-                                                    .isHapticsEnabled
-                                        )
                                 }
                             },
 
@@ -207,7 +273,10 @@ fun CameraScreen(
 
                         Toast.makeText(
                             context,
-                            "Camera error: ${error.localizedMessage}",
+                            "Camera error: ${
+                                error.localizedMessage
+                                    ?: "Unknown error"
+                            }",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -216,10 +285,12 @@ fun CameraScreen(
         )
 
         /*
-         * DEBUG DETECTION OVERLAY
+         * ==============================
+         * DETECTION OVERLAY
+         * ==============================
          */
         if (
-            appSettings.showDebugOverlay &&
+            appSettings.showDetectionBoxes &&
             sceneResult != null
         ) {
 
@@ -228,14 +299,14 @@ fun CameraScreen(
 
                     sceneResult
                         ?.primaryObject
-                        ?.let {
-                            add(it)
+                        ?.let { objectItem ->
+                            add(objectItem)
                         }
 
                     sceneResult
                         ?.secondaryObjects
-                        ?.let {
-                            addAll(it)
+                        ?.let { secondaryObjects ->
+                            addAll(secondaryObjects)
                         }
                 }
 
@@ -247,32 +318,40 @@ fun CameraScreen(
         }
 
         /*
+         * ==============================
          * STATUS
+         * ==============================
          */
         val primaryObject =
             sceneResult?.primaryObject
+
+        val currentTrustLevel =
+            primaryObject
+                ?.trust
+                ?.trustLevel
+                ?: TrustLevel.HIGH
+
+        val currentRiskLevel =
+            primaryObject
+                ?.trust
+                ?.riskLevel
+                ?: RiskLevel.SAFE
+
+        val currentStatusMessage =
+            ocrText
+                ?: sceneResult
+                    ?.fullSceneDescription
+                ?: "Analyzing environment..."
 
         StatusIndicator(
 
             isActive = isAnalyzing,
 
-            statusMessage =
-                ocrText
-                    ?: sceneResult
-                        ?.fullSceneDescription
-                    ?: "Analyzing environment...",
+            statusMessage = currentStatusMessage,
 
-            trustLevel =
-                primaryObject
-                    ?.trust
-                    ?.trustLevel
-                    ?: TrustLevel.HIGH,
+            trustLevel = currentTrustLevel,
 
-            riskLevel =
-                primaryObject
-                    ?.trust
-                    ?.riskLevel
-                    ?: RiskLevel.SAFE,
+            riskLevel = currentRiskLevel,
 
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -280,7 +359,9 @@ fun CameraScreen(
         )
 
         /*
+         * ==============================
          * BOTTOM CONTROLS
+         * ==============================
          */
         Column(
 
@@ -294,18 +375,24 @@ fun CameraScreen(
         ) {
 
             /*
+             * ==============================
              * OCR BUTTON
+             * ==============================
+             *
+             * The actual OCR processing can be
+             * connected later through AIEngine.ocrProcessor.
              */
             SecondaryActionButton(
 
                 text = "READ THIS TEXT (OCR)",
 
-                icon =
-                    Icons.Default.TextFields,
+                icon = Icons.Default.TextFields,
 
                 onClick = {
 
-                    ttsManager.speakUrgent(
+                    ocrText = null
+
+                    voiceManager.speakUrgent(
                         "Reading text"
                     )
 
@@ -318,25 +405,41 @@ fun CameraScreen(
             )
 
             /*
-             * STOP BUTTON
+             * ==============================
+             * STOP ASSISTANCE
+             * ==============================
              */
             PrimaryActionButton(
 
                 text = "STOP ASSISTANCE",
 
-                icon =
-                    Icons.Default.Stop,
+                icon = Icons.Default.Stop,
 
                 onClick = {
 
+                    /*
+                     * Stop analysis.
+                     */
                     isAnalyzing = false
 
-                    ttsManager.stop()
+                    /*
+                     * Stop voice.
+                     */
+                    voiceManager.stop()
 
+                    /*
+                     * Stop vibration.
+                     */
                     hapticManager.stop()
 
+                    /*
+                     * Stop camera.
+                     */
                     cameraManager.stopCamera()
 
+                    /*
+                     * Return to previous screen.
+                     */
                     onStopAssistance()
                 },
 

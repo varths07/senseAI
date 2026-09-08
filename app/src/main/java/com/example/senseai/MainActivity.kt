@@ -3,6 +3,7 @@ package com.example.senseai
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("SenseAI_v3", "MainActivity: onCreate")
 
         enableEdgeToEdge()
 
@@ -38,6 +40,16 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d("SenseAI_v3", "MainActivity: onResume")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d("SenseAI_v3", "MainActivity: onPause")
     }
 
     private fun requestRequiredPermissions() {

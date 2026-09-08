@@ -28,16 +28,20 @@ fun SettingsScreen(
         mutableFloatStateOf(currentSettings.speechRate)
     }
 
-    var isHapticsEnabled by remember {
-        mutableStateOf(currentSettings.isHapticsEnabled)
+    var voiceEnabled by remember {
+        mutableStateOf(currentSettings.voiceEnabled)
     }
 
-    var showDebugOverlay by remember {
-        mutableStateOf(currentSettings.showDebugOverlay)
+    var hapticsEnabled by remember {
+        mutableStateOf(currentSettings.hapticEnabled)
+    }
+
+    var showDetectionBoxes by remember {
+        mutableStateOf(currentSettings.showDetectionBoxes)
     }
 
     var detectionThreshold by remember {
-        mutableFloatStateOf(currentSettings.detectionThreshold)
+        mutableFloatStateOf(currentSettings.confidenceThreshold)
     }
 
     var voiceCommandsEnabled by remember {
@@ -61,27 +65,15 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold
                     )
                 },
-
                 navigationIcon = {
-                    IconButton(
-                        onClick = onBack
-                    ) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             imageVector =
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription =
-                                "Back to Home"
+                            contentDescription = "Back to Home"
                         )
                     }
-                },
-
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor =
-                            MaterialTheme.colorScheme.surface,
-                        titleContentColor =
-                            MaterialTheme.colorScheme.onSurface
-                    )
+                }
             )
         }
     ) { innerPadding ->
@@ -90,30 +82,34 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(
-                    MaterialTheme.colorScheme.background
-                )
-                .verticalScroll(
-                    rememberScrollState()
-                )
+                .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp)
                 .semantics {
-                    contentDescription =
-                        "SenseAI settings screen"
+                    contentDescription = "SenseAI settings screen"
                 },
-
-            verticalArrangement =
-                Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-
-            /*
-             * VOICE SETTINGS
-             */
 
             SettingsSectionTitle(
                 title = "VOICE ASSISTANCE",
-                subtitle =
-                    "Control how SenseAI speaks to you"
+                subtitle = "Control how SenseAI speaks to you"
+            )
+
+            SettingsSwitchCard(
+                title = "Voice Announcements",
+                description =
+                    "Automatically announce detected objects through the speaker",
+                checked = voiceEnabled,
+                onCheckedChange = {
+                    voiceEnabled = it
+
+                    onSettingsChanged(
+                        currentSettings.copy(
+                            voiceEnabled = it
+                        )
+                    )
+                }
             )
 
             SettingsCard {
@@ -121,22 +117,15 @@ fun SettingsScreen(
                 Text(
                     text =
                         "Speech Rate: " +
-                                "${String.format("%.1fx", speechRate)}",
-
-                    fontWeight =
-                        FontWeight.Bold,
-
+                                String.format("%.1fx", speechRate),
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Slider(
                     value = speechRate,
-
                     onValueChange = {
                         speechRate = it
 
@@ -146,44 +135,25 @@ fun SettingsScreen(
                             )
                         )
                     },
-
                     valueRange = 0.5f..2.0f,
-
                     steps = 5
                 )
 
                 Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement =
                         Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Slow",
-                        style =
-                            MaterialTheme.typography.bodySmall
-                    )
-
-                    Text(
-                        text = "Fast",
-                        style =
-                            MaterialTheme.typography.bodySmall
-                    )
+                    Text("Slow")
+                    Text("Fast")
                 }
             }
-
-            /*
-             * VOICE COMMANDS
-             */
 
             SettingsSwitchCard(
                 title = "Voice Commands",
                 description =
                     "Allow SenseAI to listen for spoken commands",
-
                 checked = voiceCommandsEnabled,
-
                 onCheckedChange = {
                     voiceCommandsEnabled = it
 
@@ -195,10 +165,6 @@ fun SettingsScreen(
                 }
             )
 
-            /*
-             * HAPTIC SETTINGS
-             */
-
             SettingsSectionTitle(
                 title = "HAPTIC FEEDBACK",
                 subtitle =
@@ -209,15 +175,13 @@ fun SettingsScreen(
                 title = "Haptic Vibration Alerts",
                 description =
                     "Vibrate the phone for approaching obstacles and risk levels",
-
-                checked = isHapticsEnabled,
-
+                checked = hapticsEnabled,
                 onCheckedChange = {
-                    isHapticsEnabled = it
+                    hapticsEnabled = it
 
                     onSettingsChanged(
                         currentSettings.copy(
-                            isHapticsEnabled = it
+                            hapticEnabled = it
                         )
                     )
                 }
@@ -229,16 +193,14 @@ fun SettingsScreen(
                     text =
                         "Haptic Intensity: " +
                                 "${(hapticIntensity * 100).toInt()}%",
-
-                    fontWeight =
-                        FontWeight.Bold,
-
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Slider(
                     value = hapticIntensity,
-
                     onValueChange = {
                         hapticIntensity = it
 
@@ -248,38 +210,20 @@ fun SettingsScreen(
                             )
                         )
                     },
-
                     valueRange = 0.2f..1.0f,
-
                     steps = 3,
-
-                    enabled = isHapticsEnabled
+                    enabled = hapticsEnabled
                 )
 
                 Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement =
                         Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Gentle",
-                        style =
-                            MaterialTheme.typography.bodySmall
-                    )
-
-                    Text(
-                        text = "Strong",
-                        style =
-                            MaterialTheme.typography.bodySmall
-                    )
+                    Text("Gentle")
+                    Text("Strong")
                 }
             }
-
-            /*
-             * AI DETECTION
-             */
 
             SettingsSectionTitle(
                 title = "AI DETECTION",
@@ -293,99 +237,69 @@ fun SettingsScreen(
                     text =
                         "Detection Sensitivity: " +
                                 "${(detectionThreshold * 100).toInt()}%",
-
-                    fontWeight =
-                        FontWeight.Bold,
-
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text =
                         "Higher values reduce false detections. " +
                                 "Lower values detect more possible objects.",
-
-                    style =
-                        MaterialTheme.typography.bodySmall,
-
+                    style = MaterialTheme.typography.bodySmall,
                     color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Slider(
                     value = detectionThreshold,
-
                     onValueChange = {
                         detectionThreshold = it
 
                         onSettingsChanged(
                             currentSettings.copy(
-                                detectionThreshold = it
+                                confidenceThreshold = it
                             )
                         )
                     },
-
                     valueRange = 0.30f..0.85f,
-
                     steps = 10
                 )
             }
-
-            /*
-             * ALERT SENSITIVITY
-             */
 
             SettingsCard {
 
                 Text(
                     text = "Alert Sensitivity",
-                    fontWeight =
-                        FontWeight.Bold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(6.dp)
-                )
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text =
                         "Controls how aggressively SenseAI reports potential hazards.",
-
-                    style =
-                        MaterialTheme.typography.bodySmall,
-
+                    style = MaterialTheme.typography.bodySmall,
                     color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(12.dp)
-                )
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement =
                         Arrangement.spacedBy(8.dp)
                 ) {
 
                     AlertSensitivityButton(
                         text = "LOW",
-                        selected =
-                            alertSensitivity == "LOW",
-                        modifier =
-                            Modifier.weight(1f)
+                        selected = alertSensitivity == "LOW",
+                        modifier = Modifier.weight(1f)
                     ) {
                         alertSensitivity = "LOW"
 
@@ -398,10 +312,8 @@ fun SettingsScreen(
 
                     AlertSensitivityButton(
                         text = "MEDIUM",
-                        selected =
-                            alertSensitivity == "MEDIUM",
-                        modifier =
-                            Modifier.weight(1f)
+                        selected = alertSensitivity == "MEDIUM",
+                        modifier = Modifier.weight(1f)
                     ) {
                         alertSensitivity = "MEDIUM"
 
@@ -414,10 +326,8 @@ fun SettingsScreen(
 
                     AlertSensitivityButton(
                         text = "HIGH",
-                        selected =
-                            alertSensitivity == "HIGH",
-                        modifier =
-                            Modifier.weight(1f)
+                        selected = alertSensitivity == "HIGH",
+                        modifier = Modifier.weight(1f)
                     ) {
                         alertSensitivity = "HIGH"
 
@@ -430,10 +340,6 @@ fun SettingsScreen(
                 }
             }
 
-            /*
-             * DEMO / DEBUG
-             */
-
             SettingsSectionTitle(
                 title = "DEVELOPER / DEMO",
                 subtitle =
@@ -444,80 +350,50 @@ fun SettingsScreen(
                 title = "Visual AI Overlay",
                 description =
                     "Show bounding boxes, direction, distance, movement and confidence",
-
-                checked = showDebugOverlay,
-
+                checked = showDetectionBoxes,
                 onCheckedChange = {
-                    showDebugOverlay = it
+                    showDetectionBoxes = it
 
                     onSettingsChanged(
                         currentSettings.copy(
-                            showDebugOverlay = it
+                            showDetectionBoxes = it
                         )
                     )
                 }
             )
 
-            /*
-             * INFORMATION
-             */
-
             SettingsCard {
 
                 Text(
                     text = "SenseAI",
-                    fontWeight =
-                        FontWeight.Bold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(6.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "See Less. Know More.",
+                    color = MaterialTheme.colorScheme.primary
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text =
-                        "See Less. Know More.",
-
-                    fontSize = 14.sp,
-
-                    color =
-                        MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
-                )
-
-                Text(
-                    text =
-                        "AI-powered environmental awareness " +
-                                "using computer vision, spatial analysis, " +
+                        "AI-powered environmental awareness using " +
+                                "computer vision, spatial analysis, " +
                                 "voice guidance and haptic feedback.",
-
-                    style =
-                        MaterialTheme.typography.bodyMedium,
-
+                    style = MaterialTheme.typography.bodyMedium,
                     color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(
-                modifier =
-                    Modifier.height(12.dp)
-            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
-
-
-/*
- * SECTION TITLE
- */
 
 @Composable
 private fun SettingsSectionTitle(
@@ -525,68 +401,42 @@ private fun SettingsSectionTitle(
     subtitle: String
 ) {
     Column {
-
         Text(
             text = title,
             fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
-            color =
-                MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(
-            modifier =
-                Modifier.height(3.dp)
-        )
+        Spacer(modifier = Modifier.height(3.dp))
 
         Text(
             text = subtitle,
-            style =
-                MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall,
             color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+                MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
-
-
-/*
- * COMMON SETTINGS CARD
- */
 
 @Composable
 private fun SettingsCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme
-                        .surfaceVariant
-            ),
-
-        shape =
-            MaterialTheme.shapes.medium
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
-
         Column(
-            modifier =
-                Modifier.padding(16.dp),
-
+            modifier = Modifier.padding(16.dp),
             content = content
         )
     }
 }
-
-
-/*
- * SWITCH CARD
- */
 
 @Composable
 private fun SettingsSwitchCard(
@@ -596,64 +446,43 @@ private fun SettingsSwitchCard(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Card(
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme
-                        .surfaceVariant
-            ),
-
-        shape =
-            MaterialTheme.shapes.medium
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
-
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
-
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
 
             Column(
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             ) {
-
                 Text(
                     text = title,
-                    fontWeight =
-                        FontWeight.Bold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = description,
-                    style =
-                        MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(
-                modifier =
-                    Modifier.width(12.dp)
-            )
+            Spacer(modifier = Modifier.width(12.dp))
 
             Switch(
                 checked = checked,
@@ -662,11 +491,6 @@ private fun SettingsSwitchCard(
         }
     }
 }
-
-
-/*
- * ALERT SENSITIVITY BUTTON
- */
 
 @Composable
 private fun AlertSensitivityButton(
@@ -678,24 +502,20 @@ private fun AlertSensitivityButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
-        colors =
-            ButtonDefaults.outlinedButtonColors(
-                containerColor =
-                    if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-
-                contentColor =
-                    if (selected) {
-                        MaterialTheme.colorScheme
-                            .onPrimary
-                    } else {
-                        MaterialTheme.colorScheme
-                            .onSurface
-                    }
-            )
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor =
+                if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+            contentColor =
+                if (selected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+        )
     ) {
         Text(
             text = text,

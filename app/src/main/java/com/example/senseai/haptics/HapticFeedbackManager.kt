@@ -1,231 +1,119 @@
-package com.example.senseai.voice
+package com.example.senseai.haptics
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import com.example.senseai.data.model.RiskLevel
 import com.example.senseai.utils.Logger
-import java.util.Locale
 
-class TextToSpeechManager(
-    context: Context,
-    private val onInitComplete: (Boolean) -> Unit = {}
-) : TextToSpeech.OnInitListener {
+class HapticFeedbackManager(
+    context: Context
+) {
 
-    private var textToSpeech: TextToSpeech? =
-        TextToSpeech(context.applicationContext, this)
+    private val vibrator: Vibrator? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager =
+                context.applicationContext
+                    .getSystemService(VibratorManager::class.java)
 
-    private var initialized = false
-
-    private var currentLanguage = Language.ENGLISH
-
-    private var speechRate = 1.0f
-    private var pitch = 1.0f
-
-    private var lastSpokenText = ""
-    private var lastSpokenTime = 0L
-
-    enum class Language {
-        ENGLISH,
-        TAMIL
-    }
-
-    override fun onInit(status: Int) {
-
-        if (status != TextToSpeech.SUCCESS) {
-            initialized = false
-            Logger.e("Text-to-Speech initialization failed")
-            onInitComplete(false)
-            return
-        }
-
-        initialized = true
-
-        textToSpeech?.setSpeechRate(speechRate)
-        textToSpeech?.setPitch(pitch)
-
-        val success = setLanguage(currentLanguage)
-
-        if (!success) {
-            Logger.e("Required TTS language is not available")
-        }
-
-        Logger.i("Text-to-Speech initialized")
-
-        onInitComplete(success)
-    }
-
-    fun isReady(): Boolean {
-        return initialized && textToSpeech != null
-    }
-
-    fun setLanguage(language: Language): Boolean {
-
-        if (!initialized) {
-            currentLanguage = language
-            return false
-        }
-
-        val locale = when (language) {
-            Language.ENGLISH -> Locale.US
-            Language.TAMIL -> Locale("ta", "IN")
-        }
-
-        val result =
-            textToSpeech?.setLanguage(locale)
-                ?: TextToSpeech.ERROR
-
-        val supported =
-            result != TextToSpeech.LANG_MISSING_DATA &&
-                    result != TextToSpeech.LANG_NOT_SUPPORTED
-
-        if (supported) {
-            currentLanguage = language
-
-            Logger.i(
-                "Voice language changed to ${language.name}"
-            )
+            manager?.defaultVibrator
         } else {
-            Logger.e(
-                "TTS language not supported: ${language.name}"
-            )
+            @Suppress("DEPRECATION")
+            context.applicationContext
+                .getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
 
-        return supported
-    }
-
-    fun setEnglish(): Boolean {
-        return setLanguage(Language.ENGLISH)
-    }
-
-    fun setTamil(): Boolean {
-        return setLanguage(Language.TAMIL)
-    }
-
-    fun getCurrentLanguage(): Language {
-        return currentLanguage
-    }
-
-    fun setSpeechRate(rate: Float) {
-
-        speechRate =
-            rate.coerceIn(0.5f, 2.0f)
-
-        textToSpeech?.setSpeechRate(speechRate)
-    }
-
-    fun setPitch(value: Float) {
-
-        pitch =
-            value.coerceIn(0.5f, 2.0f)
-
-        textToSpeech?.setPitch(pitch)
-    }
-
-    fun speak(
-        text: String,
-        urgent: Boolean = false
+    /**
+     * Basic vibration.
+     */
+    fun triggerHaptic(
+        duration: Long = 100L,
+        intensity: Float = 1.0f
     ) {
-
-        if (!isReady()) {
-            Logger.w("TTS is not ready")
-            return
-        }
-
-        val cleanText =
-            text
-                .replace("\\s+".toRegex(), " ")
-                .trim()
-
-        if (cleanText.isEmpty()) {
-            return
-        }
-
-        val currentTime =
-            System.currentTimeMillis()
-
-        /*
-         * Prevent the same detection from
-         * being announced continuously.
-         */
-        if (!urgent &&
-            cleanText.equals(
-                lastSpokenText,
-                ignoreCase = true
-            ) &&
-            currentTime - lastSpokenTime < 3500L
-        ) {
-            return
-        }
-
-        lastSpokenText = cleanText
-        lastSpokenTime = currentTime
-
-        val queueMode =
-            if (urgent) {
-                TextToSpeech.QUEUE_FLUSH
-            } else {
-                TextToSpeech.QUEUE_ADD
-            }
-
-        textToSpeech?.speak(
-            cleanText,
-            queueMode,
-            null,
-            "senseai_${currentTime}"
-        )
-    }
-
-    fun speakUrgent(text: String) {
-        speak(
-            text = text,
-            urgent = true
-        )
-    }
-
-    fun speakEnglish(text: String) {
-
-        if (setEnglish()) {
-            speak(text)
-        }
-    }
-
-    fun speakTamil(text: String) {
-
-        if (setTamil()) {
-            speak(text)
-        }
-    }
-
-    fun stop() {
+        val safeIntensity =
+            intensity.coerceIn(0.2f, 1.0f)
 
         try {
-            textToSpeech?.stop()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
-            lastSpokenText = ""
-            lastSpokenTime = 0L
+                val amplitude =
+                    (255f * safeIntensity)
+                        .toInt()
+                        .coerceIn(1, 255)
+
+                vibrator?.vibrate(
+                    VibrationEffect.createOneShot(
+                        duration,
+                        amplitude
+                    )
+                )
+
+            } else {
+
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(duration)
+            }
 
         } catch (e: Exception) {
+
             Logger.e(
-                "Error stopping TTS",
+                "Failed to trigger haptic feedback",
                 e
             )
         }
     }
 
-    fun shutdown() {
+    /**
+     * Risk-based vibration.
+     */
+    fun triggerHapticForRisk(
+        riskLevel: RiskLevel,
+        isEnabled: Boolean = true,
+        intensity: Float = 1.0f
+    ) {
+        if (!isEnabled) return
 
+        when (riskLevel) {
+
+            RiskLevel.HIGH -> {
+                triggerHaptic(
+                    duration = 220L,
+                    intensity = intensity
+                )
+            }
+
+            RiskLevel.MEDIUM -> {
+                triggerHaptic(
+                    duration = 140L,
+                    intensity = intensity
+                )
+            }
+
+            RiskLevel.LOW -> {
+                triggerHaptic(
+                    duration = 80L,
+                    intensity = intensity
+                )
+            }
+
+            RiskLevel.SAFE -> {
+                // No vibration.
+            }
+        }
+    }
+
+    /**
+     * Stop all vibration.
+     */
+    fun stop() {
         try {
-            textToSpeech?.stop()
-            textToSpeech?.shutdown()
-
-            textToSpeech = null
-            initialized = false
-
-            lastSpokenText = ""
-            lastSpokenTime = 0L
-
+            vibrator?.cancel()
         } catch (e: Exception) {
+
             Logger.e(
-                "Error shutting down TTS",
+                "Failed to stop haptic feedback",
                 e
             )
         }
